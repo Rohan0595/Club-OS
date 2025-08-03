@@ -65,6 +65,22 @@ CREATE TABLE IF NOT EXISTS public.messages (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create invitations table for the invitation system
+CREATE TABLE IF NOT EXISTS public.invitations (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    club VARCHAR(255) NOT NULL,
+    inviter_name VARCHAR(255) NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    accepted_at TIMESTAMP WITH TIME ZONE,
+    accepted_by_email VARCHAR(255),
+    accepted_by_name VARCHAR(255),
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '7 days')
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
 CREATE INDEX IF NOT EXISTS idx_users_club ON public.users(club);
@@ -78,6 +94,9 @@ CREATE INDEX IF NOT EXISTS idx_events_club ON public.events(club);
 CREATE INDEX IF NOT EXISTS idx_events_date ON public.events(date);
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON public.messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON public.messages(timestamp);
+CREATE INDEX IF NOT EXISTS idx_invitations_token ON public.invitations(token);
+CREATE INDEX IF NOT EXISTS idx_invitations_email ON public.invitations(email);
+CREATE INDEX IF NOT EXISTS idx_invitations_status ON public.invitations(status);
 
 -- Enable Row Level Security
 ALTER TABLE public.clubs ENABLE ROW LEVEL SECURITY;
@@ -86,6 +105,21 @@ ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invitations ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Allow read access to clubs" ON public.clubs;
+DROP POLICY IF EXISTS "Allow users to read own data" ON public.users;
+DROP POLICY IF EXISTS "Allow users to read club members" ON public.users;
+DROP POLICY IF EXISTS "Allow read access to members" ON public.members;
+DROP POLICY IF EXISTS "Allow read access to tasks" ON public.tasks;
+DROP POLICY IF EXISTS "Allow write access to tasks for admins" ON public.tasks;
+DROP POLICY IF EXISTS "Allow read access to events" ON public.events;
+DROP POLICY IF EXISTS "Allow write access to events for admins" ON public.events;
+DROP POLICY IF EXISTS "Allow read access to messages" ON public.messages;
+DROP POLICY IF EXISTS "Allow write access to messages" ON public.messages;
+DROP POLICY IF EXISTS "Allow read access to invitations" ON public.invitations;
+DROP POLICY IF EXISTS "Allow write access to invitations" ON public.invitations;
 
 -- Create RLS policies
 -- Clubs: Allow read access to all authenticated users
@@ -136,46 +170,14 @@ CREATE POLICY "Allow read access to messages" ON public.messages
 CREATE POLICY "Allow write access to messages" ON public.messages
     FOR INSERT WITH CHECK (true);
 
--- Insert sample data
-INSERT INTO public.clubs (name, color, member_count) VALUES
-    ('Tech Club', 'bg-blue-500', 3),
-    ('Cultural Society', 'bg-purple-500', 2),
-    ('Sports Club', 'bg-green-500', 2)
-ON CONFLICT (name) DO NOTHING;
+-- Invitations: Allow read/write access to all authenticated users
+CREATE POLICY "Allow read access to invitations" ON public.invitations
+    FOR SELECT USING (true);
 
-INSERT INTO public.users (name, email, role, club, avatar) VALUES
-    ('Admin User', 'admin@clubos.com', 'admin', 'Tech Club', '/placeholder-user.jpg'),
-    ('Rahul Kumar', 'rahul@techclub.com', 'president', 'Tech Club', '/placeholder-user.jpg'),
-    ('Priya Sharma', 'priya@cultural.com', 'president', 'Cultural Society', '/placeholder-user.jpg'),
-    ('Amit Singh', 'amit@sports.com', 'president', 'Sports Club', '/placeholder-user.jpg')
-ON CONFLICT (email) DO NOTHING;
+CREATE POLICY "Allow write access to invitations" ON public.invitations
+    FOR ALL USING (true);
 
-INSERT INTO public.members (name, role, email, avatar, club, status, can_assign_tasks) VALUES
-    ('Rahul Kumar', 'President', 'rahul@techclub.com', '/placeholder-user.jpg', 'Tech Club', 'active', true),
-    ('Priya Sharma', 'Vice President', 'priya@techclub.com', '/placeholder-user.jpg', 'Tech Club', 'active', true),
-    ('Amit Singh', 'Secretary', 'amit@techclub.com', '/placeholder-user.jpg', 'Tech Club', 'active', false),
-    ('Priya Sharma', 'President', 'priya@cultural.com', '/placeholder-user.jpg', 'Cultural Society', 'active', true),
-    ('Sneha Patel', 'Vice President', 'sneha@cultural.com', '/placeholder-user.jpg', 'Cultural Society', 'active', false),
-    ('Amit Singh', 'President', 'amit@sports.com', '/placeholder-user.jpg', 'Sports Club', 'active', true),
-    ('Rajesh Kumar', 'Vice President', 'rajesh@sports.com', '/placeholder-user.jpg', 'Sports Club', 'active', false)
-ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO public.tasks (title, description, assignee, status, priority, due_date, club) VALUES
-    ('Organize Tech Fest', 'Plan and execute the annual technology festival including venue booking, speaker arrangements, and marketing materials.', 'Rahul Kumar', 'In Progress', 'High', '2024-02-15', 'Tech Club'),
-    ('Design Club Poster', 'Create promotional materials for the upcoming club events including posters, social media graphics, and flyers.', 'Priya Sharma', 'Completed', 'Medium', '2024-02-10', 'Tech Club'),
-    ('Book Auditorium', 'Reserve the main auditorium for upcoming club events and coordinate with the facilities department.', 'Amit Singh', 'Pending', 'Low', '2024-02-20', 'Tech Club'),
-    ('Cultural Night Preparation', 'Organize and prepare for the annual cultural night event.', 'Priya Sharma', 'In Progress', 'High', '2024-02-25', 'Cultural Society'),
-    ('Dance Competition', 'Plan and execute the inter-college dance competition.', 'Sneha Patel', 'Completed', 'Medium', '2024-02-12', 'Cultural Society'),
-    ('Sports Tournament', 'Organize the annual sports tournament with multiple events.', 'Amit Singh', 'In Progress', 'High', '2024-03-01', 'Sports Club'),
-    ('Equipment Maintenance', 'Maintain and update sports equipment inventory.', 'Rajesh Kumar', 'Pending', 'Low', '2024-02-18', 'Sports Club')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO public.events (title, date, attendees, status, club) VALUES
-    ('Annual Tech Symposium', '2024-03-15', 200, 'Upcoming', 'Tech Club'),
-    ('Hackathon 2024', '2024-04-20', 150, 'Planning', 'Tech Club'),
-    ('Cultural Night', '2024-02-28', 150, 'Planning', 'Cultural Society'),
-    ('Dance Competition', '2024-03-10', 100, 'Upcoming', 'Cultural Society')
-ON CONFLICT DO NOTHING;
+-- No sample data - start fresh with user-created data
 
 -- Create a function to update member count automatically
 CREATE OR REPLACE FUNCTION update_club_member_count()
@@ -195,6 +197,9 @@ BEGIN
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Drop existing trigger to avoid conflicts
+DROP TRIGGER IF EXISTS trigger_update_member_count ON public.members;
 
 -- Create trigger to automatically update member count
 CREATE TRIGGER trigger_update_member_count

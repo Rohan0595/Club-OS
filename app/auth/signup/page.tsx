@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,6 +11,8 @@ import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, Building } from "lucide-react
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
+import { useEmail } from "@/hooks/use-email"
+import { toast } from "sonner"
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -25,16 +27,33 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isInvited, setIsInvited] = useState(false)
+  const [invitationToken, setInvitationToken] = useState("")
+  const [emailStatus, setEmailStatus] = useState<"idle" | "checking" | "available" | "taken">("idle")
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, isAuthenticated, logout } = useAuth()
+  const { sendWelcomeEmail, loading: emailLoading } = useEmail()
 
-  const clubs = [
-    { id: "tech", name: "Tech Club", description: "Technology and innovation enthusiasts" },
-    { id: "cultural", name: "Cultural Society", description: "Arts, music, and cultural activities" },
-    { id: "sports", name: "Sports Club", description: "Sports and fitness activities" },
-    { id: "literary", name: "Literary Club", description: "Writing, debating, and literature" },
-    { id: "photography", name: "Photography Club", description: "Photography and visual arts" },
-  ]
+  // Check for invitation parameters on component mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const token = urlParams.get('token')
+    const club = urlParams.get('club')
+    
+    if (token && club) {
+      setIsInvited(true)
+      setInvitationToken(token)
+      setFormData(prev => ({ ...prev, club: decodeURIComponent(club) }))
+      
+      // If user is already logged in, log them out to complete the invitation flow
+      if (isAuthenticated) {
+        logout()
+        toast.info("Please complete the invitation signup process")
+      }
+    }
+  }, [isAuthenticated, logout])
+
+
 
   const roles = [
     { id: "member", name: "Member", description: "Regular club member" },
@@ -47,6 +66,37 @@ export default function SignupPage() {
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     setError("")
+    
+    // Check email availability when email field changes
+    if (field === "email" && value) {
+      checkEmailAvailability(value)
+    } else if (field === "email" && !value) {
+      setEmailStatus("idle")
+    }
+  }
+
+  const checkEmailAvailability = async (email: string) => {
+    if (!email || !email.includes('@')) return
+    
+    setEmailStatus("checking")
+    
+    try {
+      const response = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email,
+          invitationToken: isInvited ? invitationToken : undefined
+        }),
+      })
+
+      const data = await response.json()
+      setEmailStatus(data.exists ? "taken" : "available")
+    } catch (error) {
+      setEmailStatus("idle")
+    }
   }
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -67,10 +117,35 @@ export default function SignupPage() {
       return
     }
 
-    if (!formData.club || !formData.role) {
-      setError("Please select a club and role")
+    if (!formData.club.trim() || !formData.role) {
+      setError("Please enter a club name and select a role")
       setIsLoading(false)
       return
+    }
+
+    // Check if email is already registered
+    try {
+      const response = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: formData.email,
+          invitationToken: isInvited ? invitationToken : undefined
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.exists) {
+        setError("This email is already registered. Please use a different email or try logging in.")
+        setIsLoading(false)
+        return
+      }
+    } catch (error) {
+      console.error('Error checking email:', error)
+      // Continue with signup if email check fails
     }
 
     // Simulate API call delay
@@ -81,12 +156,49 @@ export default function SignupPage() {
       name: formData.name,
       email: formData.email,
       role: formData.role,
-      club: clubs.find(c => c.id === formData.club)?.name || "",
+      club: formData.club,
       id: Date.now().toString()
+    }
+
+    // If this is an invited user, update the invitation status
+    if (isInvited && invitationToken) {
+      try {
+        const response = await fetch('/api/invitations/accept', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            token: invitationToken,
+            userEmail: formData.email,
+            userName: formData.name
+          }),
+        })
+
+        if (!response.ok) {
+          console.warn('Failed to update invitation status')
+        }
+      } catch (error) {
+        console.error('Error updating invitation:', error)
+      }
     }
 
     // Use the auth context to login
     login(user)
+
+    // Send welcome email
+    try {
+      const emailResult = await sendWelcomeEmail(formData.email, formData.name)
+      if (emailResult.success) {
+        toast.success("Welcome email sent! Check your inbox.")
+      } else {
+        console.warn("Failed to send welcome email:", emailResult.error)
+        // Don't block the signup process if email fails
+      }
+    } catch (emailError) {
+      console.error("Error sending welcome email:", emailError)
+      // Don't block the signup process if email fails
+    }
   }
 
   return (
@@ -128,40 +240,67 @@ export default function SignupPage() {
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
+                             <div className="space-y-2">
+                 <Label htmlFor="email">Email</Label>
+                 <div className="relative">
+                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                   <Input
+                     id="email"
+                     type="email"
+                     placeholder="Enter your email"
+                     value={formData.email}
+                     onChange={(e) => handleInputChange("email", e.target.value)}
+                     className={`pl-10 ${
+                       emailStatus === "taken" ? "border-red-500" : 
+                       emailStatus === "available" ? "border-green-500" : ""
+                     }`}
+                     required
+                   />
+                   {emailStatus === "checking" && (
+                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                     </div>
+                   )}
+                   {emailStatus === "available" && (
+                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500">
+                       ✓
+                     </div>
+                   )}
+                   {emailStatus === "taken" && (
+                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-red-500">
+                       ✗
+                     </div>
+                   )}
+                 </div>
+                 {emailStatus === "available" && (
+                   <p className="text-sm text-green-600">✓ Email is available</p>
+                 )}
+                 {emailStatus === "taken" && (
+                   <p className="text-sm text-red-600">✗ This email is already registered</p>
+                 )}
+               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="club">Select Club</Label>
-                <Select value={formData.club} onValueChange={(value) => handleInputChange("club", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose your club" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clubs.map((club) => (
-                      <SelectItem key={club.id} value={club.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{club.name}</span>
-                          <span className="text-xs text-gray-500">{club.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                             <div className="space-y-2">
+                 <Label htmlFor="club">Club Name</Label>
+                 <div className="relative">
+                   <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                   <Input
+                     id="club"
+                     type="text"
+                     placeholder={isInvited ? "Club name (pre-filled)" : "Enter your club name"}
+                     value={formData.club}
+                     onChange={(e) => handleInputChange("club", e.target.value)}
+                     className="pl-10"
+                     disabled={isInvited}
+                     required
+                   />
+                 </div>
+                 {isInvited && (
+                   <p className="text-sm text-blue-600">
+                     ✓ You're joining an existing club via invitation
+                   </p>
+                 )}
+               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="role">Role in Club</Label>
@@ -228,8 +367,8 @@ export default function SignupPage() {
                 </div>
               </div>
               
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Create account"}
+              <Button type="submit" className="w-full" disabled={isLoading || emailLoading}>
+                {isLoading || emailLoading ? "Creating account..." : "Create account"}
               </Button>
             </form>
             

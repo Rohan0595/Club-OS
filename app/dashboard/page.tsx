@@ -50,10 +50,14 @@ import {
   LayoutDashboard,
   CheckSquare,
   ArrowLeft,
+  TrendingUp,
+  Activity,
+  Zap,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
+import { useEmail } from "@/hooks/use-email"
 import { toast } from "sonner"
 
 interface User {
@@ -144,213 +148,12 @@ interface Message {
   chatId: string;
 }
 
-// Club-specific data - defined outside component to avoid hooks order issues
-const clubData = {
-  "Tech Club": {
-    color: "bg-blue-500",
-    memberCount: 3,
-    tasks: [
-      {
-        id: 1,
-        title: "Organize Tech Fest",
-        description: "Plan and execute the annual technology festival including venue booking, speaker arrangements, and marketing materials.",
-        assignee: "Rahul Kumar",
-        status: "In Progress",
-        priority: "High",
-        dueDate: "2024-02-15",
-        club: "Tech Club",
-        subtasks: [
-          { id: 1, title: "Book auditorium", completed: true, assignee: "Rahul Kumar" },
-          { id: 2, title: "Contact speakers", completed: true, assignee: "Priya Sharma" },
-          { id: 3, title: "Design posters", completed: false, assignee: "Amit Singh" },
-          { id: 4, title: "Send invitations", completed: false, assignee: "Sneha Patel" }
-        ],
-        comments: [
-          { id: 1, author: "Rahul Kumar", content: "Venue booking confirmed for March 15th", timestamp: "2024-01-20T10:30:00Z" },
-          { id: 2, author: "Priya Sharma", content: "Speakers list finalized. Need to send confirmation emails.", timestamp: "2024-01-21T14:15:00Z" }
-        ],
-        tags: ["Event", "High Priority", "Marketing"],
-        createdAt: "2024-01-15T09:00:00Z",
-        updatedAt: "2024-01-21T14:15:00Z"
-      },
-      {
-        id: 2,
-        title: "Design Club Poster",
-        description: "Create promotional materials for the upcoming club events including posters, social media graphics, and flyers.",
-        assignee: "Priya Sharma",
-        status: "Completed",
-        priority: "Medium",
-        dueDate: "2024-02-10",
-        club: "Tech Club",
-        subtasks: [
-          { id: 1, title: "Create poster design", completed: true, assignee: "Priya Sharma" },
-          { id: 2, title: "Get approval from committee", completed: true, assignee: "Rahul Kumar" },
-          { id: 3, title: "Print posters", completed: true, assignee: "Amit Singh" }
-        ],
-        comments: [
-          { id: 1, author: "Priya Sharma", content: "Design completed and ready for review", timestamp: "2024-01-25T16:45:00Z" },
-          { id: 2, author: "Rahul Kumar", content: "Approved! Great work on the design.", timestamp: "2024-01-26T11:20:00Z" }
-        ],
-        tags: ["Design", "Marketing", "Completed"],
-        createdAt: "2024-01-20T13:30:00Z",
-        updatedAt: "2024-01-26T11:20:00Z"
-      },
-      {
-        id: 3,
-        title: "Book Auditorium",
-        description: "Reserve the main auditorium for upcoming club events and coordinate with the facilities department.",
-        assignee: "Amit Singh",
-        status: "Pending",
-        priority: "Low",
-        dueDate: "2024-02-20",
-        club: "Tech Club",
-        subtasks: [
-          { id: 1, title: "Check auditorium availability", completed: false, assignee: "Amit Singh" },
-          { id: 2, title: "Submit booking request", completed: false, assignee: "Amit Singh" },
-          { id: 3, title: "Confirm with facilities", completed: false, assignee: "Amit Singh" }
-        ],
-        comments: [
-          { id: 1, author: "Amit Singh", content: "Need to check the auditorium schedule for February", timestamp: "2024-01-22T09:15:00Z" }
-        ],
-        tags: ["Venue", "Low Priority", "Pending"],
-        createdAt: "2024-01-22T09:00:00Z",
-        updatedAt: "2024-01-22T09:15:00Z"
-      }
-    ],
-    members: [
-      {
-        id: 1,
-        name: "Rahul Kumar",
-        role: "President",
-        email: "rahul@techclub.com",
-        avatar: "/placeholder.svg?height=40&width=40",
-        club: "Tech Club",
-        status: "active" as const
-      },
-      {
-        id: 2,
-        name: "Priya Sharma",
-        role: "Vice President",
-        email: "priya@techclub.com",
-        avatar: "/placeholder.svg?height=40&width=40",
-        club: "Tech Club",
-        status: "active" as const
-      },
-      {
-        id: 3,
-        name: "Amit Singh",
-        role: "Secretary",
-        email: "amit@techclub.com",
-        avatar: "/placeholder.svg?height=40&width=40",
-        club: "Tech Club",
-        status: "active" as const
-      }
-    ],
-    events: [
-      { id: 1, title: "Annual Tech Symposium", date: "2024-03-15", attendees: 200, status: "Upcoming", club: "Tech Club" },
-      { id: 2, title: "Hackathon 2024", date: "2024-04-20", attendees: 150, status: "Planning", club: "Tech Club" }
-    ]
-  },
-  "Cultural Society": {
-    color: "bg-purple-500",
-    memberCount: 2,
-    tasks: [
-      {
-        id: 4,
-        title: "Cultural Night Preparation",
-        assignee: "Priya Sharma",
-        status: "In Progress",
-        priority: "High",
-        dueDate: "2024-02-25",
-        club: "Cultural Society"
-      },
-      {
-        id: 5,
-        title: "Dance Competition",
-        assignee: "Sneha Patel",
-        status: "Completed",
-        priority: "Medium",
-        dueDate: "2024-02-12",
-        club: "Cultural Society"
-      }
-    ],
-    members: [
-      {
-        id: 4,
-        name: "Priya Sharma",
-        role: "President",
-        email: "priya@cultural.com",
-        avatar: "/placeholder.svg?height=40&width=40",
-        club: "Cultural Society",
-        status: "active" as const
-      },
-      {
-        id: 5,
-        name: "Sneha Patel",
-        role: "Vice President",
-        email: "sneha@cultural.com",
-        avatar: "/placeholder.svg?height=40&width=40",
-        club: "Cultural Society",
-        status: "active" as const
-      }
-    ],
-    events: [
-      { id: 3, title: "Cultural Night", date: "2024-02-28", attendees: 150, status: "Planning", club: "Cultural Society" },
-      { id: 4, title: "Dance Competition", date: "2024-03-10", attendees: 100, status: "Upcoming", club: "Cultural Society" }
-    ]
-  },
-  "Sports Club": {
-    color: "bg-green-500",
-    memberCount: 2,
-    tasks: [
-      {
-        id: 6,
-        title: "Sports Tournament",
-        assignee: "Amit Singh",
-        status: "In Progress",
-        priority: "High",
-        dueDate: "2024-03-01",
-        club: "Sports Club"
-      },
-      {
-        id: 7,
-        title: "Equipment Maintenance",
-        assignee: "Rajesh Kumar",
-        status: "Pending",
-        priority: "Low",
-        dueDate: "2024-02-18",
-        club: "Sports Club"
-      }
-    ],
-    members: [
-      {
-        id: 6,
-        name: "Amit Singh",
-        role: "President",
-        email: "amit@sports.com",
-        avatar: "/placeholder.svg?height=40&width=40",
-        club: "Sports Club",
-        status: "active" as const
-      },
-      {
-        id: 7,
-        name: "Rajesh Kumar",
-        role: "Vice President",
-        email: "rajesh@sports.com",
-        avatar: "/placeholder.svg?height=40&width=40",
-        club: "Sports Club",
-        status: "active" as const
-      }
-    ],
-    events: [
-      { id: 5, title: "Sports Tournament", date: "2024-04-10", attendees: 300, status: "Upcoming", club: "Sports Club" },
-      { id: 6, title: "Fitness Workshop", date: "2024-03-05", attendees: 50, status: "Planning", club: "Sports Club" }
-    ]
-  }
-}
+// Empty club data - all data will be entered manually
+const clubData: Record<string, any> = {}
 
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading, logout } = useAuth()
+  const { sendMemberInvitationEmail } = useEmail()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("dashboard")
   const [date, setDate] = useState<Date | undefined>(new Date())
@@ -388,6 +191,7 @@ export default function Dashboard() {
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [tasks, setTasks] = useState<Task[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
 
   // Event management state
   const [showEventDialog, setShowEventDialog] = useState(false)
@@ -399,8 +203,32 @@ export default function Dashboard() {
   })
 
   // Memoized values - must be after all useState hooks
-  const currentClub = user?.club || "Tech Club"
-  const clubInfo = useMemo(() => clubData[currentClub as keyof typeof clubData], [currentClub])
+  const currentClub = user?.club || "New Club"
+  const clubInfo = useMemo(() => {
+    // If club exists in predefined data, use it
+    if (clubData[currentClub as keyof typeof clubData]) {
+      return clubData[currentClub as keyof typeof clubData]
+    }
+    
+    // Otherwise, create a default structure for new clubs
+    return {
+      color: "bg-blue-500",
+      memberCount: 1, // Start with 1 (the user themselves)
+      tasks: [],
+      members: [
+        {
+          id: 1,
+          name: user?.name || "User",
+          role: user?.role || "Member",
+          email: user?.email || "",
+          avatar: "/placeholder.svg?height=40&width=40",
+          club: currentClub,
+          status: "active" as const
+        }
+      ],
+      events: []
+    }
+  }, [currentClub, user])
   const isAdmin = user?.role === "admin" || user?.role === "president"
 
   // All useEffect hooks - must be after all other hooks
@@ -422,7 +250,7 @@ export default function Dashboard() {
         // Group chat messages
         {
           id: 1,
-          content: "Welcome to the group chat! 🎉",
+          content: "Welcome to the group chat!",
           sender: "system",
           senderName: "System",
           senderAvatar: "",
@@ -579,30 +407,40 @@ export default function Dashboard() {
     setIsInviting(true)
 
     try {
-      // Simulate email sending
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Send real invitation email
+      const emailResult = await sendMemberInvitationEmail(
+        newMember.email,
+        newMember.name,
+        currentClub,
+        user?.name || "Admin"
+      )
 
-      const newTeamMember: TeamMember = {
-        id: Date.now().toString(),
-        name: newMember.name,
-        email: newMember.email,
-        role: newMember.role,
-        status: "invited",
-        invitedAt: new Date(),
-        canAssignTasks: false // Default to false
+      if (emailResult.success) {
+        const newTeamMember: TeamMember = {
+          id: Date.now().toString(),
+          name: newMember.name,
+          email: newMember.email,
+          role: newMember.role,
+          status: "invited",
+          invitedAt: new Date(),
+          canAssignTasks: false // Default to false
+        }
+
+        setTeamMembers(prev => [...prev, newTeamMember])
+        setNewMember({ name: "", email: "", role: "" })
+        setShowAddMemberDialog(false)
+
+        toast.success(`Invitation sent to ${newMember.email}`)
+      } else {
+        // Handle specific error messages
+        if (emailResult.error?.includes('already registered')) {
+          toast.error('This email is already registered as a member')
+        } else if (emailResult.error?.includes('pending invitation')) {
+          toast.error('This email already has a pending invitation')
+        } else {
+          toast.error(`Failed to send invitation: ${emailResult.error}`)
+        }
       }
-
-      setTeamMembers(prev => [...prev, newTeamMember])
-      setNewMember({ name: "", email: "", role: "" })
-      setShowAddMemberDialog(false)
-
-      toast.success(`Invitation sent to ${newMember.email}`)
-      
-      // Log the email notification
-      console.log(`📧 Email sent to ${newMember.email} from Club OS SRM:
-        Subject: Welcome to ${currentClub} Team
-        Content: You have been invited to join the ${currentClub} team on Club OS SRM. 
-        Please check your email for login credentials and next steps.`)
       
     } catch (error) {
       toast.error("Failed to send invitation")
@@ -636,11 +474,10 @@ export default function Dashboard() {
       const member = allMembers.find(m => m.id === memberId)
       if (member) {
         const newTeamMember: TeamMember = {
-          id: member.id,
+          id: member.id.toString(),
           name: member.name,
           email: member.email,
           role: member.role,
-          avatar: member.avatar,
           status: "active",
           canAssignTasks: true
         }
@@ -649,16 +486,16 @@ export default function Dashboard() {
       }
     } else {
       // Remove from task team
-      const member = teamMembers.find(m => m.id === memberId)
+      const member = teamMembers.find(m => m.id === memberId.toString())
       if (member) {
-        setTeamMembers(prev => prev.filter(m => m.id !== memberId))
+        setTeamMembers(prev => prev.filter(m => m.id !== memberId.toString()))
         toast.success(`${member.name} removed from task team`)
       }
     }
   }
 
   const isMemberInTaskTeam = (memberId: number) => {
-    return teamMembers.some(m => m.id === memberId)
+    return teamMembers.some(m => m.id === memberId.toString())
   }
 
   const handleSendMessage = () => {
@@ -876,10 +713,10 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-lg">Loading...</p>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-lg text-gray-600 font-medium">Loading your dashboard...</p>
         </div>
       </div>
     )
@@ -900,36 +737,38 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[#F9FAFB]">
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-white/80 backdrop-blur-xl shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 border-r border-white/20",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-center h-16 px-4 border-b">
-          <h1 className="text-xl font-bold text-gray-800">CLUB OS</h1>
-          <Badge variant="secondary" className="ml-2">
+        <div className="flex items-center justify-center h-16 px-4 border-b border-white/20 bg-gradient-to-b from-[#3B82F6] to-[#8B5CF6]">
+          <h1 className="text-xl font-bold text-white">CLUB OS</h1>
+          <Badge variant="secondary" className="ml-2 bg-white/20 text-white border-white/30">
             {isAdmin ? "ADMIN" : currentClub}
           </Badge>
         </div>
         
         {/* User Info */}
-        <div className="p-4 border-b">
+        <div className="p-4 border-b border-[#E5E7EB] bg-[#FFFFFF]">
           <div className="flex items-center space-x-3">
-            <Avatar>
+            <Avatar className="ring-2 ring-[#3B82F6]/20">
               <AvatarImage src="/placeholder.svg?height=32&width=32" />
-              <AvatarFallback>{user.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+              <AvatarFallback className="bg-gradient-to-r from-[#3B82F6] to-[#8B5CF6] text-white font-semibold">
+                {user.name.split(" ").map(n => n[0]).join("")}
+              </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+              <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
               <p className="text-xs text-gray-500 capitalize">{user.role}</p>
             </div>
           </div>
         </div>
 
-        <nav className="mt-4">
+        <nav className="mt-4 px-2">
           {sidebarItems.map((item) => {
             const Icon = item.icon
             return (
@@ -940,12 +779,15 @@ export default function Dashboard() {
                   setSidebarOpen(false)
                 }}
                 className={cn(
-                  "flex items-center w-full px-4 py-3 text-left text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors",
-                  activeTab === item.id && "bg-blue-50 text-blue-600 border-r-2 border-blue-600",
+                                     "flex items-center w-full px-4 py-3 text-left text-[#6B7280] hover:bg-gradient-to-r hover:from-[#3B82F6]/10 hover:to-[#8B5CF6]/5 hover:text-[#3B82F6] transition-all duration-200 rounded-xl mb-1 group",
+                  activeTab === item.id && "bg-gradient-to-r from-[#3B82F6] to-[#8B5CF6] text-white shadow-lg transform scale-105",
                 )}
               >
-                <Icon className="w-5 h-5 mr-3" />
-                {item.label}
+                                 <Icon className={cn(
+                   "w-5 h-5 mr-3 transition-transform duration-200",
+                   activeTab === item.id ? "text-white" : "text-[#6B7280] group-hover:text-[#3B82F6]"
+                 )} />
+                <span className="font-medium">{item.label}</span>
               </button>
             )
           })}
@@ -953,7 +795,11 @@ export default function Dashboard() {
 
         {/* Logout Button */}
         <div className="absolute bottom-4 left-4 right-4">
-          <Button variant="outline" onClick={handleLogout} className="w-full">
+          <Button 
+            variant="outline" 
+            onClick={handleLogout} 
+            className="w-full bg-white/80 backdrop-blur-sm border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all duration-200"
+          >
             <LogOut className="w-4 h-4 mr-2" />
             Logout
           </Button>
@@ -963,31 +809,39 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b px-4 py-3">
+        <header className="bg-[#FFFFFF]/80 backdrop-blur-xl shadow-sm border-b border-[#E5E7EB] px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden mr-2"
+                                 className="lg:hidden mr-4 hover:bg-[#3B82F6]/10"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
               >
-                <Menu className="h-6 w-6" />
+                <Menu className="h-6 w-6 text-gray-600" />
               </Button>
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input placeholder="Search tasks, members, events..." className="pl-10 w-64" />
+                  <Input 
+                    placeholder="Search tasks, members, events..." 
+                    className="pl-10 w-80 bg-white border-gray-200 text-black placeholder-gray-500 focus:border-[#3B82F6] focus:ring-[#3B82F6]/20" 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
+                             <Button variant="ghost" size="icon" className="hover:bg-[#3B82F6]/10 relative">
+                <Bell className="h-5 w-5 text-gray-600" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
               </Button>
-              <Avatar>
+              <Avatar className="ring-2 ring-blue-100">
                 <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                <AvatarFallback>{user.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+                <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold">
+                  {user.name.split(" ").map(n => n[0]).join("")}
+                </AvatarFallback>
               </Avatar>
             </div>
           </div>
@@ -996,17 +850,17 @@ export default function Dashboard() {
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-6">
           {activeTab === "dashboard" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900">
+                  <h2 className="text-4xl font-bold text-[#1F2937]">
                     {isAdmin ? "Admin Dashboard" : `${currentClub} Dashboard`}
                   </h2>
-                  <p className="text-gray-600 mt-1">
-                    Welcome back, {user.name}! Here's what's happening in your club.
+                  <p className="text-[#6B7280] mt-2 text-lg">
+                                         Welcome back, <span className="font-semibold text-[#3B82F6]">{user.name}</span>! Here's what's happening in your club.
                   </p>
                 </div>
-                <Button>
+                <Button className="bg-[#10B981] hover:bg-[#059669] shadow-lg hover:shadow-xl transition-all duration-200">
                   <Plus className="w-4 h-4 mr-2" />
                   New Task
                 </Button>
@@ -1014,65 +868,73 @@ export default function Dashboard() {
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card>
+                <Card className="bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Club Members</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-semibold text-black">Club Members</CardTitle>
+                    <div className="p-2 bg-[#3B82F6] rounded-lg">
+                      <Users className="h-4 w-4 text-white" />
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{clubInfo?.memberCount || 0}</div>
-                    <p className="text-xs text-muted-foreground">Total club members</p>
+                    <div className="text-3xl font-bold text-black">{clubInfo?.memberCount || 0}</div>
+                    <p className="text-xs text-gray-600 font-medium">Total club members</p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Task Team</CardTitle>
-                    <UserPlus className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-semibold text-black">Task Team</CardTitle>
+                    <div className="p-2 bg-[#8B5CF6] rounded-lg">
+                      <UserPlus className="h-4 w-4 text-white" />
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{teamMembers.length}/15</div>
-                    <p className="text-xs text-muted-foreground">Can be assigned tasks</p>
+                    <div className="text-3xl font-bold text-black">{teamMembers.length}/15</div>
+                    <p className="text-xs text-gray-600 font-medium">Can be assigned tasks</p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-                    <Target className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-semibold text-black">Active Tasks</CardTitle>
+                    <div className="p-2 bg-[#10B981] rounded-lg">
+                      <Target className="h-4 w-4 text-white" />
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{clubInfo?.tasks?.length || 0}</div>
-                    <p className="text-xs text-muted-foreground">Tasks in progress</p>
+                    <div className="text-3xl font-bold text-black">{clubInfo?.tasks?.length || 0}</div>
+                    <p className="text-xs text-gray-600 font-medium">Tasks in progress</p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Upcoming Events</CardTitle>
-                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-semibold text-black">Upcoming Events</CardTitle>
+                    <div className="p-2 bg-[#F59E0B] rounded-lg">
+                      <CheckCircle2 className="h-4 w-4 text-white" />
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{clubInfo?.events?.length || 0}</div>
-                    <p className="text-xs text-muted-foreground">Events this month</p>
+                    <div className="text-3xl font-bold text-black">{clubInfo?.events?.length || 0}</div>
+                    <p className="text-xs text-gray-600 font-medium">Events this month</p>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Recent Tasks */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Tasks</CardTitle>
-                    <CardDescription>Latest task updates in {currentClub}</CardDescription>
+                <Card className="bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                  <CardHeader className="bg-gray-50 border-b border-gray-100">
+                    <CardTitle className="text-xl font-bold text-black">Recent Tasks</CardTitle>
+                    <CardDescription className="text-gray-600">Latest task updates in {currentClub}</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-6">
                     <div className="space-y-4">
                       {clubInfo?.tasks?.slice(0, 3).map((task: Task) => (
-                        <div key={task.id} className="flex items-center space-x-4">
-                          <div className={cn("w-2 h-2 rounded-full", getPriorityColor(task.priority))} />
+                        <div key={task.id} className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200">
+                          <div className={cn("w-3 h-3 rounded-full", getPriorityColor(task.priority))} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
-                            <p className="text-sm text-gray-500">{task.assignee}</p>
+                            <p className="text-sm font-semibold text-black truncate">{task.title}</p>
+                            <p className="text-sm text-gray-600">{task.assignee}</p>
                           </div>
-                          <Badge variant="secondary" className={getStatusColor(task.status)}>
+                          <Badge variant="secondary" className={cn(getStatusColor(task.status), "font-medium")}>
                             {task.status}
                           </Badge>
                         </div>
@@ -1082,24 +944,26 @@ export default function Dashboard() {
                 </Card>
 
                 {/* Team Members */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Task Team</CardTitle>
-                    <CardDescription>Members who can be assigned tasks ({teamMembers.length}/15)</CardDescription>
+                <Card className="bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                  <CardHeader className="bg-gray-50 border-b border-gray-100">
+                    <CardTitle className="text-xl font-bold text-black">Task Team</CardTitle>
+                    <CardDescription className="text-gray-600">Members who can be assigned tasks ({teamMembers.length}/15)</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-6">
                     <div className="space-y-4">
                       {teamMembers.length === 0 ? (
                         <div className="text-center py-8">
-                          <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500">No task team members yet</p>
+                          <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Users className="w-8 h-8 text-blue-600" />
+                          </div>
+                          <p className="text-gray-500 font-medium">No task team members yet</p>
                           {isAdmin && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="mt-2"
-                              onClick={() => setShowAddMemberDialog(true)}
-                            >
+                                                      <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-3 bg-[#28A745]/10 border-[#28A745]/30 text-[#28A745] hover:bg-[#28A745]/20 hover:border-[#28A745]/50"
+                            onClick={() => setShowAddMemberDialog(true)}
+                          >
                               <UserPlus className="w-4 h-4 mr-2" />
                               Add Team Member
                             </Button>
@@ -1108,33 +972,33 @@ export default function Dashboard() {
                       ) : (
                         <>
                           {teamMembers.slice(0, 3).map((member) => (
-                            <div key={member.id} className="flex items-center space-x-3">
-                              <Avatar className="w-8 h-8">
-                                <AvatarFallback className="text-xs">
+                            <div key={member.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200">
+                              <Avatar className="w-10 h-10 ring-2 ring-blue-100">
+                                <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-sm">
                                   {member.name.split(" ").map(n => n[0]).join("")}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{member.name}</p>
+                                <p className="text-sm font-semibold text-gray-900 truncate">{member.name}</p>
                                 <p className="text-xs text-gray-500">{member.role}</p>
                               </div>
-                              <Badge variant="secondary" className={getMemberStatusColor(member.status)}>
+                              <Badge variant="secondary" className={cn(getMemberStatusColor(member.status), "font-medium")}>
                                 {member.status}
                               </Badge>
                             </div>
                           ))}
                           {teamMembers.length > 3 && (
-                            <p className="text-xs text-gray-500 text-center">
+                            <p className="text-xs text-gray-500 text-center font-medium">
                               +{teamMembers.length - 3} more team members
                             </p>
                           )}
                           {isAdmin && teamMembers.length < 15 && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-full mt-2"
-                              onClick={() => setShowAddMemberDialog(true)}
-                            >
+                                                                    <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          className="w-full mt-3 bg-[#28A745]/10 border-[#28A745]/30 text-[#28A745] hover:bg-[#28A745]/20 hover:border-[#28A745]/50"
+                                          onClick={() => setShowAddMemberDialog(true)}
+                                        >
                               <UserPlus className="w-4 h-4 mr-2" />
                               Add More Members
                             </Button>
@@ -1149,11 +1013,17 @@ export default function Dashboard() {
           )}
 
           {activeTab === "tasks" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Tasks</h2>
+                <div>
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">Tasks</h2>
+                  <p className="text-gray-600 mt-1">Manage and track your club's tasks</p>
+                </div>
                 {isAdmin && (
-                  <Button onClick={() => setShowTaskDialog(true)}>
+                  <Button 
+                    onClick={() => setShowTaskDialog(true)}
+                    className="bg-[#28A745] hover:bg-[#218838] shadow-lg hover:shadow-xl transition-all duration-200"
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Task
                   </Button>
@@ -1161,18 +1031,18 @@ export default function Dashboard() {
               </div>
 
               {/* Filter Section */}
-              <div className="bg-white p-4 rounded-lg border shadow-sm">
-                <div className="flex flex-col sm:flex-row gap-4">
+              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-200 shadow-lg">
+                <div className="flex flex-col sm:flex-row gap-6">
                   {/* Priority Filter */}
                   <div className="flex-1">
-                    <Label htmlFor="priority-filter" className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label htmlFor="priority-filter" className="text-sm font-semibold text-gray-700 mb-3 block">
                       Priority
                     </Label>
                     <select
                       id="priority-filter"
                       value={priorityFilter}
                       onChange={(e) => setPriorityFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-300 bg-white/50 backdrop-blur-sm transition-all duration-200"
                     >
                       <option value="all">All Priorities</option>
                       <option value="High">High</option>
@@ -1183,14 +1053,14 @@ export default function Dashboard() {
 
                   {/* Status Filter */}
                   <div className="flex-1">
-                    <Label htmlFor="status-filter" className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label htmlFor="status-filter" className="text-sm font-semibold text-gray-700 mb-3 block">
                       Status
                     </Label>
                     <select
                       id="status-filter"
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-300 bg-white/50 backdrop-blur-sm transition-all duration-200"
                     >
                       <option value="all">All Status</option>
                       <option value="Pending">Pending</option>
@@ -1207,7 +1077,7 @@ export default function Dashboard() {
                         setPriorityFilter("all")
                         setStatusFilter("all")
                       }}
-                      className="px-4 py-2"
+                                             className="px-6 py-3 bg-[#28A745]/10 border-[#28A745]/30 text-[#28A745] hover:bg-[#28A745]/20 hover:border-[#28A745]/50 transition-all duration-200"
                     >
                       Clear Filters
                     </Button>
@@ -1244,7 +1114,7 @@ export default function Dashboard() {
               </div>
 
               {/* Task Count */}
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 font-medium bg-white/50 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-200 inline-block">
                 Showing {getFilteredTasks().length} of {tasks.length} tasks
               </div>
 
@@ -1321,40 +1191,51 @@ export default function Dashboard() {
               </Dialog>
 
               {/* Simple Task List */}
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {getFilteredTasks().map((task: Task) => (
-                  <Card key={task.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
+                  <Card key={task.id} className="bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200 group">
+                    <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-100">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{task.title}</CardTitle>
-                        <Badge variant={getPriorityColor(task.priority)}>
+                                                 <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-[#28A745] transition-colors duration-200">{task.title}</CardTitle>
+                        <Badge variant={getPriorityColor(task.priority)} className="font-semibold">
                           {task.priority}
                         </Badge>
                       </div>
-                      <CardDescription>
-                        Assigned to {task.assignee} • Due {new Date(task.dueDate).toLocaleDateString()}
+                      <CardDescription className="text-gray-600 font-medium">
+                                                 Assigned to <span className="text-[#28A745] font-semibold">{task.assignee}</span> • Due <span className="text-orange-600 font-semibold">{new Date(task.dueDate).toLocaleDateString()}</span>
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-6">
                       <div className="flex items-center justify-between">
-                        <Badge variant={getStatusColor(task.status)}>
+                        <Badge variant={getStatusColor(task.status)} className="font-semibold">
                           {task.status}
                         </Badge>
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => handleViewTask(task)}>
+                        <div className="flex space-x-3">
+                                                     <Button 
+                             variant="outline" 
+                             size="sm" 
+                             onClick={() => handleViewTask(task)}
+                             className="bg-[#28A745]/10 border-[#28A745]/30 text-[#28A745] hover:bg-[#28A745]/20 hover:border-[#28A745]/50 transition-all duration-200"
+                           >
                             View
                           </Button>
                           {isAdmin && (
                             <>
-                              <Button variant="outline" size="sm" onClick={() => handleEditTask(task)}>
+                                                           <Button 
+                               variant="outline" 
+                               size="sm" 
+                               onClick={() => handleEditTask(task)}
+                               className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 transition-all duration-200"
+                             >
                                 <Edit className="w-4 h-4" />
                               </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleMarkAsDone(task.id)}
-                                disabled={task.status === "Completed"}
-                              >
+                                                              <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleMarkAsDone(task.id)}
+                                  disabled={task.status === "Completed"}
+                                  className="bg-[#28A745]/10 border-[#28A745]/30 text-[#28A745] hover:bg-[#28A745]/20 hover:border-[#28A745]/50 transition-all duration-200 disabled:opacity-50"
+                                >
                                 <CheckCircle className="w-4 h-4" />
                               </Button>
                             </>
@@ -1369,12 +1250,12 @@ export default function Dashboard() {
           )}
 
           {activeTab === "members" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900">Members</h2>
-                  <p className="text-gray-600 mt-1">
-                    {allMembers.length} total members • {teamMembers.length}/15 task team members
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">Members</h2>
+                  <p className="text-gray-600 mt-2 text-lg">
+                                         <span className="font-semibold text-[#28A745]">{allMembers.length}</span> total members • <span className="font-semibold text-purple-600">{teamMembers.length}/15</span> task team members
                   </p>
                 </div>
                 {isAdmin && (
@@ -1561,9 +1442,9 @@ export default function Dashboard() {
           )}
 
           {activeTab === "messages" && (
-            <div className="h-screen bg-gray-50 flex flex-col">
+            <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
               {/* Header */}
-              <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
+              <div className="bg-white/80 backdrop-blur-xl border-b border-white/20 px-6 py-4 shadow-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <h2 className="text-xl font-semibold text-gray-900">Messages</h2>
@@ -1807,10 +1688,16 @@ export default function Dashboard() {
 
           {/* Events Tab */}
           {activeTab === "events" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Events</h2>
-                <Button onClick={() => setShowEventDialog(true)}>
+                <div>
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">Events</h2>
+                  <p className="text-gray-600 mt-2 text-lg">Manage your club's events and activities</p>
+                </div>
+                                  <Button 
+                    onClick={() => setShowEventDialog(true)}
+                    className="bg-[#28A745] hover:bg-[#218838] shadow-lg hover:shadow-xl transition-all duration-200"
+                  >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Event
                 </Button>
@@ -1858,17 +1745,20 @@ export default function Dashboard() {
 
           {/* Settings Tab */}
           {activeTab === "settings" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+                <div>
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">Settings</h2>
+                  <p className="text-gray-600 mt-2 text-lg">Manage your account and club preferences</p>
+                </div>
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-8 md:grid-cols-2">
                 {/* Profile Settings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Profile Settings</CardTitle>
-                    <CardDescription>Manage your account information</CardDescription>
+                <Card className="bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                  <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-100">
+                    <CardTitle className="text-xl font-bold text-gray-900">Profile Settings</CardTitle>
+                    <CardDescription className="text-gray-600">Manage your account information</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center space-x-4">
@@ -1891,10 +1781,10 @@ export default function Dashboard() {
                 </Card>
 
                 {/* Club Settings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Club Settings</CardTitle>
-                    <CardDescription>Manage club preferences and permissions</CardDescription>
+                <Card className="bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                  <CardHeader className="bg-gradient-to-r from-gray-50 to-purple-50 border-b border-gray-100">
+                    <CardTitle className="text-xl font-bold text-gray-900">Club Settings</CardTitle>
+                    <CardDescription className="text-gray-600">Manage club preferences and permissions</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
@@ -1918,10 +1808,10 @@ export default function Dashboard() {
                 </Card>
 
                 {/* Notification Settings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Notifications</CardTitle>
-                    <CardDescription>Configure your notification preferences</CardDescription>
+                <Card className="bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                  <CardHeader className="bg-gradient-to-r from-gray-50 to-green-50 border-b border-gray-100">
+                    <CardTitle className="text-xl font-bold text-gray-900">Notifications</CardTitle>
+                    <CardDescription className="text-gray-600">Configure your notification preferences</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -1956,10 +1846,10 @@ export default function Dashboard() {
                 </Card>
 
                 {/* Security Settings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Security</CardTitle>
-                    <CardDescription>Manage your account security</CardDescription>
+                <Card className="bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                  <CardHeader className="bg-gradient-to-r from-gray-50 to-red-50 border-b border-gray-100">
+                    <CardTitle className="text-xl font-bold text-gray-900">Security</CardTitle>
+                    <CardDescription className="text-gray-600">Manage your account security</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <Button variant="outline" className="w-full">
