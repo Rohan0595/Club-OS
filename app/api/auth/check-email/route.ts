@@ -12,6 +12,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // If Supabase is not configured, return false (allow signup)
+    if (!supabase) {
+      console.warn('Supabase not configured, allowing email signup')
+      return NextResponse.json({ exists: false }, { status: 200 })
+    }
+
     // Check if email exists in members table
     try {
       const { data: memberData, error: memberError } = await supabase

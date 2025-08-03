@@ -14,68 +14,76 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if email is already registered
-    try {
-      const { data: memberData, error: memberError } = await supabase
-        .from('members')
-        .select('email')
-        .eq('email', inviteeEmail)
-        .single()
+    if (supabase) {
+      try {
+        const { data: memberData, error: memberError } = await supabase
+          .from('members')
+          .select('email')
+          .eq('email', inviteeEmail)
+          .single()
 
-      if (memberData) {
-        return NextResponse.json(
-          { error: 'This email is already registered as a member' },
-          { status: 400 }
-        )
+        if (memberData) {
+          return NextResponse.json(
+            { error: 'This email is already registered as a member' },
+            { status: 400 }
+          )
+        }
+      } catch (error) {
+        // Email not found, continue with invitation
       }
-    } catch (error) {
-      // Email not found, continue with invitation
-    }
 
-    // Check if there's already a pending invitation for this email
-    try {
-      const { data: invitationData, error: invitationError } = await supabase
-        .from('invitations')
-        .select('email')
-        .eq('email', inviteeEmail)
-        .eq('status', 'pending')
-        .single()
+      // Check if there's already a pending invitation for this email
+      try {
+        const { data: invitationData, error: invitationError } = await supabase
+          .from('invitations')
+          .select('email')
+          .eq('email', inviteeEmail)
+          .eq('status', 'pending')
+          .single()
 
-      if (invitationData) {
-        return NextResponse.json(
-          { error: 'This email already has a pending invitation' },
-          { status: 400 }
-        )
+        if (invitationData) {
+          return NextResponse.json(
+            { error: 'This email already has a pending invitation' },
+            { status: 400 }
+          )
+        }
+      } catch (error) {
+        // No pending invitation found, continue
       }
-    } catch (error) {
-      // No pending invitation found, continue
+    } else {
+      console.warn('Supabase not configured, skipping email uniqueness checks')
     }
 
     // Generate a unique invitation token
     const invitationToken = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
     // Store the invitation in the database (you'll need to create this table)
-    try {
-      const { error: dbError } = await supabase
-        .from('invitations')
-        .insert({
-          token: invitationToken,
-          email: inviteeEmail,
-          name: inviteeName,
-          club: clubName,
-          inviter_name: inviterName,
-          status: 'pending',
-          created_at: new Date().toISOString()
-        })
+    if (supabase) {
+      try {
+        const { error: dbError } = await supabase
+          .from('invitations')
+          .insert({
+            token: invitationToken,
+            email: inviteeEmail,
+            name: inviteeName,
+            club: clubName,
+            inviter_name: inviterName,
+            status: 'pending',
+            created_at: new Date().toISOString()
+          })
 
-      if (dbError) {
-        console.error('Database error:', dbError)
+        if (dbError) {
+          console.error('Database error:', dbError)
+          // For now, continue without database storage
+          console.log('Continuing without database storage...')
+        }
+      } catch (error) {
+        console.error('Database connection error:', error)
         // For now, continue without database storage
         console.log('Continuing without database storage...')
       }
-    } catch (error) {
-      console.error('Database connection error:', error)
-      // For now, continue without database storage
-      console.log('Continuing without database storage...')
+    } else {
+      console.warn('Supabase not configured, skipping invitation storage')
     }
 
     // Send the invitation email

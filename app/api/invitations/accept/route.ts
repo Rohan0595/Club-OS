@@ -13,56 +13,60 @@ export async function POST(request: NextRequest) {
     }
 
     // Update the invitation status to accepted
-    try {
-      const { error: updateError } = await supabase
-        .from('invitations')
-        .update({
-          status: 'accepted',
-          accepted_at: new Date().toISOString(),
-          accepted_by_email: userEmail,
-          accepted_by_name: userName
-        })
-        .eq('token', token)
-        .eq('status', 'pending')
-
-      if (updateError) {
-        console.error('Database error:', updateError)
-        // For now, continue without database update
-        console.log('Continuing without database update...')
-      }
-
-      // Get the invitation details to add user to the club
-      const { data: invitation, error: fetchError } = await supabase
-        .from('invitations')
-        .select('*')
-        .eq('token', token)
-        .single()
-
-      if (fetchError || !invitation) {
-        console.log('Invitation not found in database, continuing...')
-      } else {
-        // Add the user to the club members (you'll need to create this table)
-        const { error: memberError } = await supabase
-          .from('members')
-          .insert({
-            name: userName,
-            email: userEmail,
-            club: invitation.club,
-            role: 'member', // Default role for invited members
-            status: 'active',
-            joined_at: new Date().toISOString(),
-            invited_by: invitation.inviter_name
+    if (supabase) {
+      try {
+        const { error: updateError } = await supabase
+          .from('invitations')
+          .update({
+            status: 'accepted',
+            accepted_at: new Date().toISOString(),
+            accepted_by_email: userEmail,
+            accepted_by_name: userName
           })
+          .eq('token', token)
+          .eq('status', 'pending')
 
-        if (memberError) {
-          console.error('Error adding member:', memberError)
-          // Don't fail the whole process if member addition fails
+        if (updateError) {
+          console.error('Database error:', updateError)
+          // For now, continue without database update
+          console.log('Continuing without database update...')
         }
+
+        // Get the invitation details to add user to the club
+        const { data: invitation, error: fetchError } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('token', token)
+          .single()
+
+        if (fetchError || !invitation) {
+          console.log('Invitation not found in database, continuing...')
+        } else {
+          // Add the user to the club members (you'll need to create this table)
+          const { error: memberError } = await supabase
+            .from('members')
+            .insert({
+              name: userName,
+              email: userEmail,
+              club: invitation.club,
+              role: 'member', // Default role for invited members
+              status: 'active',
+              joined_at: new Date().toISOString(),
+              invited_by: invitation.inviter_name
+            })
+
+          if (memberError) {
+            console.error('Error adding member:', memberError)
+            // Don't fail the whole process if member addition fails
+          }
+        }
+      } catch (error) {
+        console.error('Database connection error:', error)
+        // For now, continue without database operations
+        console.log('Continuing without database operations...')
       }
-    } catch (error) {
-      console.error('Database connection error:', error)
-      // For now, continue without database operations
-      console.log('Continuing without database operations...')
+    } else {
+      console.warn('Supabase not configured, skipping invitation acceptance')
     }
 
     return NextResponse.json(
